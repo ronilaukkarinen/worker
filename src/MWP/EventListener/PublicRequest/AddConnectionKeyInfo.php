@@ -68,11 +68,32 @@ class MWP_EventListener_PublicRequest_AddConnectionKeyInfo implements Symfony_Ev
         if (!isset($_GET['action']) || $_GET['action'] !== 'mwp_clear_data') {
             return false;
         }
-        global $wpdb;
-        $sql = "DELETE FROM `". $wpdb->prefix ."options` WHERE `option_name` LIKE 'mwp_%';";
-        $wpdb->query($wpdb->prepare($sql));
 
-        return mwp_refresh_live_public_keys(array());
+        global $wpdb;
+
+        // Call core uninstall function first
+        mwp_uninstall();
+
+        // Delete worker configuration
+        delete_option('mwp_worker_configuration');
+        delete_option('mwp_worker_brand');
+
+        // Delete ALL related options
+        $wpdb->query("DELETE FROM `{$wpdb->prefix}options` WHERE `option_name` LIKE 'mwp_%'");
+        $wpdb->query("DELETE FROM `{$wpdb->prefix}options` WHERE `option_name` LIKE '_worker_%'");
+        $wpdb->query("DELETE FROM `{$wpdb->prefix}options` WHERE `option_name` LIKE 'mmb_%'");
+
+        // Core cleanup (referencing MMB/Core.php)
+        delete_option('_worker_nossl_key');
+        delete_option('_worker_public_key');
+        delete_option('_action_message_id');
+        delete_option('mmb_network_admin_install');
+
+        wp_clear_scheduled_hook('mwp_notifications');
+        wp_clear_scheduled_hook('mwp_datasend');
+
+        wp_redirect(admin_url('plugins.php'));
+        exit;
     }
 
     protected function checkForDeletedConnectionKey()
@@ -85,9 +106,34 @@ class MWP_EventListener_PublicRequest_AddConnectionKeyInfo implements Symfony_Ev
             return false;
         }
 
-        mwp_remove_communication_key($_GET['connection_id']);
+        $connectionId = $_GET['connection_id'];
 
-        return true;
+        // Remove ALL traces of this connection
+        mwp_remove_communication_key($connectionId);
+
+        // Delete all related options for this connection
+        global $wpdb;
+        $wpdb->query($wpdb->prepare(
+            "DELETE FROM `{$wpdb->prefix}options` WHERE `option_name` LIKE %s OR `option_name` LIKE %s",
+            "mwp_%_{$connectionId}",
+            "worker_%_{$connectionId}"
+        ));
+
+        // Update public keys
+        mwp_refresh_live_public_keys(array());
+
+        // If this was the last connection, do full cleanup
+        $remainingKeys = mwp_get_communication_keys();
+        if (empty($remainingKeys)) {
+            delete_option('_worker_nossl_key');
+            delete_option('_worker_public_key');
+            delete_option('_action_message_id');
+            delete_option('mwp_worker_configuration');
+        }
+
+        // Redirect to plugins page instead of worker_connections
+        wp_redirect(remove_query_arg(array('worker_connections', 'action', 'connection_id', 'mwp_nonce'), $_SERVER['REQUEST_URI']));
+        exit;
     }
 
     public function printConnectionModalOpenScript()

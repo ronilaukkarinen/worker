@@ -3,7 +3,7 @@
 Plugin Name: ManageWP - Worker
 Plugin URI: https://managewp.com
 Description: We help you efficiently manage all your WordPress websites. <strong>Updates, backups, 1-click login, migrations, security</strong> and more, on one dashboard. This service comes in two versions: standalone <a href="https://managewp.com">ManageWP</a> service that focuses on website management, and <a href="https://godaddy.com/pro">GoDaddy Pro</a> that includes additional tools for hosting, client management, lead generation, and more.
-Version: 4.9.20
+Version: 4.9.21-dev
 Author: GoDaddy
 Author URI: https://godaddy.com
 License: GPL2
